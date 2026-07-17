@@ -13,6 +13,7 @@ import {
   cssVars,
   screenTitles,
   initialGoals,
+  initialWeeklyGoals,
   initialPeers,
   initialPosts,
   initialResources,
@@ -39,6 +40,7 @@ export default function App() {
   const [streak] = useState(3);
 
   const [goals, setGoals] = useState(initialGoals);
+  const [weeklyGoals, setWeeklyGoals] = useState(initialWeeklyGoals);
   const [peers] = useState(initialPeers);
   const [posts, setPosts] = useState(initialPosts);
   const [resources] = useState(initialResources);
@@ -121,6 +123,20 @@ export default function App() {
           : { ...g, milestones: g.milestones.map((m) => (m.id === mid ? { ...m, done: !m.done } : m)) }
       )
     );
+
+  const addWeeklyGoal = (text, why) => {
+    const t = text.trim();
+    const w = why.trim();
+    if (!t || !w) return false;
+    const goal = {
+      id: 'w' + Date.now(),
+      text: t,
+      why: w,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    };
+    setWeeklyGoals((gs) => [goal, ...gs]);
+    return true;
+  };
 
   // intake
   const onIntakeText = (e) => setIntakeText(e.target.value);
@@ -246,7 +262,13 @@ export default function App() {
           )}
 
           {screen === 'goals' && (
-            <Goals goals={goalsWithStats} overallLabel={`${overallPct}%`} onToggleMilestone={toggleMilestone} />
+            <Goals
+              goals={goalsWithStats}
+              overallLabel={`${overallPct}%`}
+              onToggleMilestone={toggleMilestone}
+              weeklyGoals={weeklyGoals}
+              onAddWeeklyGoal={addWeeklyGoal}
+            />
           )}
 
           {screen === 'resources' && <Resources resources={resources} />}

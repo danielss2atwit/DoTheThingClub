@@ -75,6 +75,15 @@ export const navBase = [
   { key: 'resources', label: 'Resources', icon: '❉' },
 ];
 
+export const initialWeeklyGoals = [
+  {
+    id: 'w1',
+    text: 'Cold-email a professor I admire and ask for 15 minutes of their time.',
+    why: 'I always assume busy people don’t want to be bothered, so I default to never asking. This forces me to ask anyway.',
+    date: 'Jul 10',
+  },
+];
+
 export const initialGoals = [
   {
     id: 'g1',
