@@ -33,7 +33,12 @@ export const cssVars = {
   '--line': 'rgba(43,36,64,.1)',
 };
 
-export const intakeSteps = ['thing', 'field', 'fears', 'suggest'];
+export const intakeSteps = ['areas', 'fears', 'suggest'];
+
+export const goalColorRotation = ['#f26f63', '#6562ac', '#ffd84c'];
+
+// Day the program admin has set as the end of the weekly cycle (0=Sun … 6=Sat). Thursday for now.
+export const weekEndDay = 4;
 
 export const fearOptions = [
   'I’ll look silly',
@@ -60,6 +65,11 @@ export const screenTitles = {
   resources: ['Resources', 'A roadmap so you’re never guessing alone'],
   profile: ['My Profile', 'How your cohort sees you'],
   intake: ['Home', 'Your headquarters for doing the thing'],
+  'admin-dashboard': ['Admin Dashboard', 'How your cohort is doing this week'],
+  'admin-members': ['Members', 'Invite, approve, and manage your cohort'],
+  'admin-meetings': ['Weekly Meetings', 'Run the weekly cycle, week by week'],
+  'admin-announcements': ['Announcements', 'Post updates for the whole cohort to see'],
+  'admin-settings': ['Settings', 'Semester setup and group preferences'],
 };
 
 export const kindMap = {
@@ -75,12 +85,24 @@ export const navBase = [
   { key: 'resources', label: 'Resources', icon: '❉' },
 ];
 
+export const adminNav = [
+  { key: 'admin-dashboard', label: 'Admin Dashboard', icon: '◈' },
+  { key: 'admin-members', label: 'Members', icon: '☺' },
+  { key: 'admin-meetings', label: 'Weekly Meetings', icon: '▤' },
+  { key: 'admin-announcements', label: 'Announcements', icon: '📣' },
+  { key: 'admin-settings', label: 'Settings', icon: '⚙' },
+];
+
 export const initialWeeklyGoals = [
   {
     id: 'w1',
     text: 'Cold-email a professor I admire and ask for 15 minutes of their time.',
     why: 'I always assume busy people don’t want to be bothered, so I default to never asking. This forces me to ask anyway.',
     date: 'Jul 10',
+    goalId: null,
+    reflected: true,
+    completed: true,
+    reflection: 'Did it! They said yes within 10 minutes — way less scary than I built it up to be.',
   },
 ];
 
@@ -126,6 +148,202 @@ export const initialPeers = [
   { name: 'Grace K.', initials: 'GK', color: '#5a9e78', project: 'Focus: saying yes to invites', status: 'active' },
   { name: 'Nia J.', initials: 'NJ', color: '#c264a0', project: 'Focus: sharing opinions in class', status: 'idle' },
 ];
+
+// Richer member records for admin features (member management, weekly meetings, dashboard stats).
+// `status` mirrors initialPeers' activity dot; `memberStatus` is the admin lifecycle state.
+export const initialMembers = [
+  {
+    id: 'u1',
+    name: 'Priya N.',
+    initials: 'PN',
+    color: '#f26f63',
+    email: 'priya.n@example.edu',
+    project: 'This week: cold-emailing a professor',
+    status: 'active',
+    memberStatus: 'active',
+    joinedDate: 'Jan 12',
+    submittedThisWeek: true,
+    goals: [
+      { id: 'u1g1', title: 'Speak up more', why: 'Practice sharing my voice before I feel ready.', barColor: '#f26f63', milestones: [
+        { id: 'u1m1', text: 'Ask a question in a lecture', done: true },
+        { id: 'u1m2', text: 'Share my opinion first in a group project', done: false },
+      ] },
+    ],
+    weeklyGoals: [
+      { id: 'u1w1', text: 'Cold-email a professor I admire.', why: 'I default to never asking busy people for time.', date: 'Jul 10', goalId: 'u1g1', reflected: true, completed: true, reflection: 'Did it! Way less scary than expected.' },
+    ],
+  },
+  {
+    id: 'u2',
+    name: 'Aaliyah R.',
+    initials: 'AR',
+    color: '#6562ac',
+    email: 'aaliyah.r@example.edu',
+    project: 'Focus: asking for help more',
+    status: 'active',
+    memberStatus: 'active',
+    joinedDate: 'Jan 12',
+    submittedThisWeek: true,
+    goals: [
+      { id: 'u2g1', title: 'Ask for help', why: 'Stop pushing through things alone.', barColor: '#6562ac', milestones: [
+        { id: 'u2m1', text: 'Email a professor for an extension', done: true },
+        { id: 'u2m2', text: 'Ask a classmate to study together', done: true },
+      ] },
+    ],
+    weeklyGoals: [
+      { id: 'u2w1', text: 'Emailed my professor to ask for an extension.', why: 'Hands were sweating but I did it.', date: 'Jul 10', goalId: 'u2g1', reflected: true, completed: true, reflection: 'She said yes in 10 minutes.' },
+    ],
+  },
+  {
+    id: 'u3',
+    name: 'Sofia M.',
+    initials: 'SM',
+    color: '#e0994e',
+    email: 'sofia.m@example.edu',
+    project: 'Focus: auditioning for things',
+    status: 'idle',
+    memberStatus: 'active',
+    joinedDate: 'Jan 19',
+    submittedThisWeek: false,
+    goals: [
+      { id: 'u3g1', title: 'Put myself out there', why: 'Small social risks build the muscle for bigger ones.', barColor: '#ffd84c', milestones: [
+        { id: 'u3m1', text: 'Audition for one thing this semester', done: false },
+      ] },
+    ],
+    weeklyGoals: [],
+  },
+  {
+    id: 'u4',
+    name: 'Grace K.',
+    initials: 'GK',
+    color: '#5a9e78',
+    email: 'grace.k@example.edu',
+    project: 'Focus: saying yes to invites',
+    status: 'active',
+    memberStatus: 'active',
+    joinedDate: 'Jan 12',
+    submittedThisWeek: true,
+    goals: [
+      { id: 'u4g1', title: 'Say yes more', why: 'Practice showing up even when it feels awkward.', barColor: '#5a9e78', milestones: [
+        { id: 'u4m1', text: 'Go to a party where I only know one person', done: true },
+      ] },
+    ],
+    weeklyGoals: [
+      { id: 'u4w1', text: 'Said yes to a party where I knew one person.', why: 'I usually stay home when I feel unsure.', date: 'Jul 10', goalId: 'u4g1', reflected: true, completed: true, reflection: 'Stayed two hours, actually had fun.' },
+    ],
+  },
+  {
+    id: 'u5',
+    name: 'Nia J.',
+    initials: 'NJ',
+    color: '#c264a0',
+    email: 'nia.j@example.edu',
+    project: 'Focus: sharing opinions in class',
+    status: 'idle',
+    memberStatus: 'pending',
+    joinedDate: 'Jul 15',
+    submittedThisWeek: false,
+    goals: [],
+    weeklyGoals: [],
+  },
+  {
+    id: 'u6',
+    name: 'Devon T.',
+    initials: 'DT',
+    color: '#5a8fa0',
+    email: 'devon.t@example.edu',
+    project: '',
+    status: 'idle',
+    memberStatus: 'pending',
+    joinedDate: 'Jul 17',
+    submittedThisWeek: false,
+    goals: [],
+    weeklyGoals: [],
+  },
+  {
+    id: 'u7',
+    name: 'Kayla B.',
+    initials: 'KB',
+    color: '#a0785a',
+    email: 'kayla.b@example.edu',
+    project: '',
+    status: 'idle',
+    memberStatus: 'invited',
+    joinedDate: '',
+    submittedThisWeek: false,
+    goals: [],
+    weeklyGoals: [],
+  },
+  {
+    id: 'u8',
+    name: 'Rina P.',
+    initials: 'RP',
+    color: '#8a8a8a',
+    email: 'rina.p@example.edu',
+    project: '',
+    status: 'idle',
+    memberStatus: 'deactivated',
+    joinedDate: 'Feb 2',
+    submittedThisWeek: false,
+    goals: [],
+    weeklyGoals: [],
+  },
+];
+
+export const initialAnnouncements = [
+  {
+    id: 'an1',
+    type: 'reminder',
+    title: "Meeting reminder",
+    body: "We meet Thursday at 6pm in the student center — bring your weekly reflection!",
+    date: 'Jul 18',
+    author: 'Program Lead · Dana',
+  },
+  {
+    id: 'an2',
+    type: 'guest-speaker',
+    title: 'Guest speaker next week',
+    body: "We're hosting an alum from Cohort 1 to talk about turning small risks into a habit. Come with questions!",
+    date: 'Jul 16',
+    author: 'Program Lead · Dana',
+  },
+];
+
+export const reminderTemplates = [
+  "Don't forget to submit your challenge!",
+  'Meeting starts in 30 minutes.',
+  "Reflect on last week's challenge.",
+];
+
+export const initialWeeklyCycle = {
+  currentWeek: {
+    number: 4,
+    meetingDate: '2026-07-24',
+    submissionsOpen: true,
+    attendance: [],
+  },
+  archive: [
+    { number: 3, meetingDate: '2026-07-17', submittedCount: 4, totalCount: 5 },
+    { number: 2, meetingDate: '2026-07-10', submittedCount: 5, totalCount: 5 },
+  ],
+};
+
+export const initialAdminSettings = {
+  semesterStart: '2026-01-12',
+  semesterEnd: '2026-05-08',
+  meetingDay: weekEndDay,
+  groupName: 'DoTheThingClub',
+  groupLogo: '💛',
+  reflectionQuestions: [
+    'Did you do the thing?',
+    'How did it go?',
+    'What would you tell a friend about to try the same thing?',
+  ],
+  privacy: {
+    showRealNames: true,
+    membersSeeEachOthersGoals: true,
+  },
+};
 
 export const initialPosts = [
   {

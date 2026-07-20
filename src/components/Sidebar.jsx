@@ -1,4 +1,4 @@
-import { navBase } from '../data';
+import { navBase, adminNav } from '../data';
 
 const idleStyle = {
   display: 'flex',
@@ -25,7 +25,7 @@ const activeBounceStyle = {
   boxShadow: '0 3px 0 rgba(200,166,40,.4)',
 };
 
-export default function Sidebar({ screen, onNav, onPost, onProfile }) {
+export default function Sidebar({ screen, view, onNav, onPost, onProfile }) {
   return (
     <aside
       style={{
@@ -102,6 +102,41 @@ export default function Sidebar({ screen, onNav, onPost, onProfile }) {
             </button>
           );
         })}
+
+        {view === 'admin' && (
+          <>
+            <div
+              style={{
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: '1px solid var(--line,rgba(43,36,64,.1))',
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: '.05em',
+                textTransform: 'uppercase',
+                color: 'var(--muted,#8a83a0)',
+                padding: '10px 13px 4px',
+              }}
+            >
+              Admin
+            </div>
+            {adminNav.map((item) => {
+              const isActive = screen === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => onNav(item.key)}
+                  style={isActive ? activeBounceStyle : idleStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(.98)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.filter = '')}
+                >
+                  <span style={{ fontSize: 17, width: 22, textAlign: 'center' }}>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
