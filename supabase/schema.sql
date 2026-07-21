@@ -211,3 +211,194 @@ create policy "weekly_goals_update_own"
   to authenticated
   using (member_id = auth.uid())
   with check (member_id = auth.uid());
+
+-- Shared cohort feed: posts, per-member high-fives (toggle, not a count
+-- column), and comments. Everyone signed in reads the whole feed; each
+-- member writes only their own posts/high-fives/comments.
+
+create table public.posts (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid not null references public.profiles (id) on delete cascade,
+  kind text not null default 'try' check (kind in ('try', 'learn', 'win')),
+  text text not null,
+  created_at timestamptz not null default now()
+);
+
+create table public.post_high_fives (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts (id) on delete cascade,
+  member_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (post_id, member_id)
+);
+
+create table public.post_comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts (id) on delete cascade,
+  member_id uuid not null references public.profiles (id) on delete cascade,
+  text text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.posts enable row level security;
+alter table public.post_high_fives enable row level security;
+alter table public.post_comments enable row level security;
+
+create policy "posts_select_authenticated"
+  on public.posts for select
+  to authenticated
+  using (true);
+
+create policy "posts_insert_own"
+  on public.posts for insert
+  to authenticated
+  with check (member_id = auth.uid());
+
+create policy "post_high_fives_select_authenticated"
+  on public.post_high_fives for select
+  to authenticated
+  using (true);
+
+create policy "post_high_fives_insert_own"
+  on public.post_high_fives for insert
+  to authenticated
+  with check (member_id = auth.uid());
+
+create policy "post_high_fives_delete_own"
+  on public.post_high_fives for delete
+  to authenticated
+  using (member_id = auth.uid());
+
+create policy "post_comments_select_authenticated"
+  on public.post_comments for select
+  to authenticated
+  using (true);
+
+create policy "post_comments_insert_own"
+  on public.post_comments for insert
+  to authenticated
+  with check (member_id = auth.uid());
+
+-- Cohort announcements — everyone signed in reads them, only admins post/delete.
+
+create table public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid not null references public.profiles (id) on delete cascade,
+  type text not null default 'announcement' check (type in ('reminder', 'announcement', 'event', 'resource', 'guest-speaker')),
+  title text not null,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.announcements enable row level security;
+
+create policy "announcements_select_authenticated"
+  on public.announcements for select
+  to authenticated
+  using (true);
+
+create policy "announcements_insert_admin"
+  on public.announcements for insert
+  to authenticated
+  with check (member_id = auth.uid() and public.is_admin(auth.uid()));
+
+create policy "announcements_delete_admin"
+  on public.announcements for delete
+  to authenticated
+  using (public.is_admin(auth.uid()));
+
+-- Cohort-wide weekly meeting cycle: exactly one non-archived row is "the
+-- current week"; archived rows form the history. Admin-only, no
+-- member-facing UI reads this table.
+
+create table public.cohort_weeks (
+  id uuid primary key default gen_random_uuid(),
+  number int not null unique,
+  meeting_date date not null,
+  submissions_open boolean not null default true,
+  archived boolean not null default false,
+  submitted_count int,
+  total_count int,
+  created_at timestamptz not null default now()
+);
+
+create table public.week_attendance (
+  week_id uuid not null references public.cohort_weeks (id) on delete cascade,
+  member_id uuid not null references public.profiles (id) on delete cascade,
+  primary key (week_id, member_id)
+);
+
+alter table public.cohort_weeks enable row level security;
+alter table public.week_attendance enable row level security;
+
+create policy "cohort_weeks_admin_all"
+  on public.cohort_weeks for all
+  to authenticated
+  using (public.is_admin(auth.uid()))
+  with check (public.is_admin(auth.uid()));
+
+create policy "week_attendance_admin_all"
+  on public.week_attendance for all
+  to authenticated
+  using (public.is_admin(auth.uid()))
+  with check (public.is_admin(auth.uid()));
+
+-- Seed a starting "week 1" so the Weekly Meetings screen has a current week
+-- to show immediately. Safe to edit/delete manually afterward.
+insert into public.cohort_weeks (number, meeting_date, submissions_open, archived)
+values (1, current_date, true, false);
+
+-- Resources library — everyone signed in reads it, only admins add to it.
+
+create table public.resources (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid not null references public.profiles (id) on delete cascade,
+  title text not null,
+  source text not null,
+  tag text not null default 'Toolkit' check (tag in ('Toolkit', 'Mindset', 'Stories')),
+  blurb text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.resources enable row level security;
+
+create policy "resources_select_authenticated"
+  on public.resources for select
+  to authenticated
+  using (true);
+
+create policy "resources_insert_admin"
+  on public.resources for insert
+  to authenticated
+  with check (member_id = auth.uid() and public.is_admin(auth.uid()));
+
+-- Single cohort-wide admin settings row (semester dates, group branding,
+-- reflection questions, privacy toggles). Admin-only, no member-facing UI
+-- reads this table currently. The `id boolean primary key check (id)` trick
+-- forces exactly one row to ever exist.
+
+create table public.admin_settings (
+  id boolean primary key default true check (id),
+  semester_start date not null default current_date,
+  semester_end date not null default (current_date + interval '4 months')::date,
+  meeting_day int not null default 4,
+  group_name text not null default 'Our Cohort',
+  group_logo text not null default '💛',
+  reflection_questions text[] not null default array[
+    'Did you do the thing?',
+    'How did it go?',
+    'What would you tell a friend about to try the same thing?'
+  ],
+  show_real_names boolean not null default true,
+  members_see_each_others_goals boolean not null default true
+);
+
+alter table public.admin_settings enable row level security;
+
+create policy "admin_settings_admin_all"
+  on public.admin_settings for all
+  to authenticated
+  using (public.is_admin(auth.uid()))
+  with check (public.is_admin(auth.uid()));
+
+insert into public.admin_settings default values;

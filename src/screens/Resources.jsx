@@ -113,7 +113,7 @@ export default function Resources({ resources, isAdmin, onAddResource }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 16 }}>
         {resources.map((r) => (
           <div
-            key={r.title}
+            key={r.id}
             style={{
               background: 'var(--surface,#fff)',
               border: '1px solid var(--line,rgba(43,36,64,.1))',

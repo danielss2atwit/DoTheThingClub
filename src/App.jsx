@@ -23,12 +23,7 @@ import {
   goalColorRotation,
   weekEndDay,
   initialPeers,
-  initialPosts,
-  initialResources,
   initialNotifications,
-  initialAnnouncements,
-  initialWeeklyCycle,
-  initialAdminSettings,
   reminderTemplates,
 } from './data';
 
@@ -39,6 +34,45 @@ const resourceTagStyles = {
 };
 
 const emptyAreaDraft = { category: '', goal: '', why: '' };
+
+function mapResourceRow(row) {
+  const style = resourceTagStyles[row.tag] || resourceTagStyles.Toolkit;
+  return { id: row.id, title: row.title, source: row.source, tag: row.tag, tagBg: style.tagBg, tagFg: style.tagFg, blurb: row.blurb };
+}
+
+function mapAdminSettingsRow(row) {
+  return {
+    semesterStart: row.semester_start,
+    semesterEnd: row.semester_end,
+    meetingDay: row.meeting_day,
+    groupName: row.group_name,
+    groupLogo: row.group_logo,
+    reflectionQuestions: row.reflection_questions,
+    privacy: { showRealNames: row.show_real_names, membersSeeEachOthersGoals: row.members_see_each_others_goals },
+  };
+}
+
+const adminSettingsFieldToColumn = {
+  semesterStart: 'semester_start',
+  semesterEnd: 'semester_end',
+  meetingDay: 'meeting_day',
+  groupName: 'group_name',
+  groupLogo: 'group_logo',
+  reflectionQuestions: 'reflection_questions',
+};
+
+function toAdminSettingsColumns(fields) {
+  const out = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (key === 'privacy') {
+      if ('showRealNames' in value) out.show_real_names = value.showRealNames;
+      if ('membersSeeEachOthersGoals' in value) out.members_see_each_others_goals = value.membersSeeEachOthersGoals;
+    } else {
+      out[adminSettingsFieldToColumn[key] || key] = value;
+    }
+  }
+  return out;
+}
 
 function mapProfileRow(row, goals = [], weeklyGoals = []) {
   return {
@@ -88,6 +122,50 @@ function mapWeeklyGoalRow(row) {
   };
 }
 
+function formatRelativeTime(iso) {
+  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function mapCommentRow(row) {
+  const author = row.profiles || {};
+  return { author: author.name || 'Member', initials: author.initials || '', color: author.color || '#8a83a0', text: row.text };
+}
+
+function mapPostRow(row, userId) {
+  const author = row.profiles || {};
+  const highFives = row.post_high_fives || [];
+  return {
+    id: row.id,
+    author: author.name || 'Member',
+    initials: author.initials || '',
+    color: author.color || '#8a83a0',
+    project: author.project || '',
+    time: formatRelativeTime(row.created_at),
+    kind: row.kind,
+    text: row.text,
+    hasImg: false,
+    highFives: highFives.length,
+    hiFived: highFives.some((hf) => hf.member_id === userId),
+    comments: (row.post_comments || []).map(mapCommentRow),
+  };
+}
+
+function mapAnnouncementRow(row) {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    body: row.body,
+    date: formatShortDate(row.created_at),
+    author: `Program Lead · ${row.profiles?.name || 'Admin'}`,
+  };
+}
+
 const memberFieldToColumn = {
   memberStatus: 'member_status',
   joinedDate: 'joined_date',
@@ -129,14 +207,22 @@ export default function App() {
   const [goals, setGoals] = useState([]);
   const [weeklyGoals, setWeeklyGoals] = useState([]);
   const [peers] = useState(initialPeers);
-  const [posts, setPosts] = useState(initialPosts);
-  const [resources, setResources] = useState(initialResources);
+  const [posts, setPosts] = useState([]);
+  const [resources, setResources] = useState([]);
   const [notifications, setNotifications] = useState(initialNotifications);
 
   const [members, setMembers] = useState([]);
-  const [announcements, setAnnouncements] = useState(initialAnnouncements);
-  const [weeklyCycle, setWeeklyCycle] = useState(initialWeeklyCycle);
-  const [adminSettings, setAdminSettings] = useState(initialAdminSettings);
+  const [announcements, setAnnouncements] = useState([]);
+  const [weeklyCycle, setWeeklyCycle] = useState({ currentWeek: { id: null, number: 1, meetingDate: '', submissionsOpen: true, attendance: [] }, archive: [] });
+  const [adminSettings, setAdminSettings] = useState({
+    semesterStart: '',
+    semesterEnd: '',
+    meetingDay: 4,
+    groupName: '',
+    groupLogo: '💛',
+    reflectionQuestions: [],
+    privacy: { showRealNames: true, membersSeeEachOthersGoals: true },
+  });
 
   // intake
   const [intakeStep, setIntakeStep] = useState(0);
@@ -197,12 +283,83 @@ export default function App() {
     setWeeklyGoals((weeklyData || []).map(mapWeeklyGoalRow));
   };
 
+  const fetchPosts = async (userId) => {
+    const { data } = await supabase
+      .from('posts')
+      .select('*, profiles(name, initials, color, project), post_high_fives(member_id), post_comments(*, profiles(name, initials, color))')
+      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true, foreignTable: 'post_comments' });
+    setPosts((data || []).map((row) => mapPostRow(row, userId)));
+  };
+
+  const fetchAnnouncements = async () => {
+    const { data } = await supabase
+      .from('announcements')
+      .select('*, profiles(name)')
+      .order('created_at', { ascending: false });
+    setAnnouncements((data || []).map(mapAnnouncementRow));
+  };
+
+  const fetchWeeklyCycle = async () => {
+    const { data: current } = await supabase
+      .from('cohort_weeks')
+      .select('*')
+      .eq('archived', false)
+      .order('number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const { data: archiveRows } = await supabase
+      .from('cohort_weeks')
+      .select('*')
+      .eq('archived', true)
+      .order('number', { ascending: false });
+
+    const archive = (archiveRows || []).map((w) => ({
+      number: w.number,
+      meetingDate: w.meeting_date,
+      submittedCount: w.submitted_count,
+      totalCount: w.total_count,
+    }));
+
+    if (!current) {
+      const nextNumber = archive.length ? archive[0].number + 1 : 1;
+      setWeeklyCycle({ currentWeek: { id: null, number: nextNumber, meetingDate: '', submissionsOpen: true, attendance: [] }, archive });
+      return;
+    }
+
+    const { data: attendanceRows } = await supabase.from('week_attendance').select('member_id').eq('week_id', current.id);
+    setWeeklyCycle({
+      currentWeek: {
+        id: current.id,
+        number: current.number,
+        meetingDate: current.meeting_date,
+        submissionsOpen: current.submissions_open,
+        attendance: (attendanceRows || []).map((r) => r.member_id),
+      },
+      archive,
+    });
+  };
+
+  const fetchResources = async () => {
+    const { data } = await supabase.from('resources').select('*').order('created_at', { ascending: false });
+    setResources((data || []).map(mapResourceRow));
+  };
+
+  const fetchAdminSettings = async () => {
+    const { data } = await supabase.from('admin_settings').select('*').eq('id', true).maybeSingle();
+    if (data) setAdminSettings(mapAdminSettingsRow(data));
+  };
+
   useEffect(() => {
     if (!session) {
       setProfile(null);
       setMembers([]);
       setGoals([]);
       setWeeklyGoals([]);
+      setPosts([]);
+      setAnnouncements([]);
+      setResources([]);
       return;
     }
     let cancelled = false;
@@ -216,6 +373,11 @@ export default function App() {
       });
     fetchMembers();
     fetchOwnGoals(session.user.id);
+    fetchPosts(session.user.id);
+    fetchAnnouncements();
+    fetchWeeklyCycle();
+    fetchResources();
+    fetchAdminSettings();
     return () => {
       cancelled = true;
     };
@@ -264,35 +426,57 @@ export default function App() {
       setScreen('feed');
       return;
     }
-    const post = {
-      id: 'p' + Date.now(),
-      author: 'Maya Chen',
-      initials: 'MC',
-      color: '#6562ac',
-      project: 'Speaking up',
-      time: 'just now',
-      kind: composeKind,
-      text: txt,
-      hasImg: false,
-      highFives: 0,
-      hiFived: false,
-      comments: [],
-    };
-    setPosts((ps) => [post, ...ps]);
     setCompose('');
     setScreen('feed');
+    supabase
+      .from('posts')
+      .insert({ member_id: profile.id, kind: composeKind, text: txt })
+      .select('*, profiles(name, initials, color, project)')
+      .single()
+      .then(({ data, error }) => {
+        if (error) return console.error(error);
+        const row = { ...data, post_high_fives: [], post_comments: [] };
+        setPosts((ps) => [mapPostRow(row, profile.id), ...ps]);
+      });
   };
-  const toggleHighFive = (id) =>
-    setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, hiFived: !p.hiFived } : p)));
+  const toggleHighFive = (id) => {
+    const post = posts.find((p) => p.id === id);
+    if (!post) return;
+    const nextHiFived = !post.hiFived;
+    setPosts((ps) =>
+      ps.map((p) => (p.id === id ? { ...p, hiFived: nextHiFived, highFives: p.highFives + (nextHiFived ? 1 : -1) } : p))
+    );
+    if (nextHiFived) {
+      supabase
+        .from('post_high_fives')
+        .insert({ post_id: id, member_id: profile.id })
+        .then(({ error }) => error && console.error(error));
+    } else {
+      supabase
+        .from('post_high_fives')
+        .delete()
+        .eq('post_id', id)
+        .eq('member_id', profile.id)
+        .then(({ error }) => error && console.error(error));
+    }
+  };
   const toggleComments = (id) => setOpenComments((oc) => ({ ...oc, [id]: !oc[id] }));
   const setCommentDraft = (id, val) => setCommentDrafts((cd) => ({ ...cd, [id]: val }));
   const addComment = (id) => {
     const val = (commentDrafts[id] || '').trim();
     if (!val) return;
-    const c = { author: 'Maya Chen', initials: 'MC', color: '#6562ac', text: val };
-    setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, c] } : p)));
     setCommentDrafts((cd) => ({ ...cd, [id]: '' }));
     setOpenComments((oc) => ({ ...oc, [id]: true }));
+    supabase
+      .from('post_comments')
+      .insert({ post_id: id, member_id: profile.id, text: val })
+      .select('*, profiles(name, initials, color)')
+      .single()
+      .then(({ data, error }) => {
+        if (error) return console.error(error);
+        const c = mapCommentRow(data);
+        setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, c] } : p)));
+      });
   };
 
   // goals
@@ -410,61 +594,116 @@ export default function App() {
 
   // admin — announcements
   const addAnnouncement = (type, title, body) => {
-    const a = {
-      id: 'an' + Date.now(),
-      type,
-      title,
-      body,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      author: 'Program Lead · Dana',
-    };
-    setAnnouncements((as) => [a, ...as]);
+    supabase
+      .from('announcements')
+      .insert({ member_id: profile.id, type, title, body })
+      .select('*, profiles(name)')
+      .single()
+      .then(({ data, error }) => {
+        if (error) return console.error(error);
+        setAnnouncements((as) => [mapAnnouncementRow(data), ...as]);
+      });
   };
-  const deleteAnnouncement = (id) => setAnnouncements((as) => as.filter((a) => a.id !== id));
+  const deleteAnnouncement = (id) => {
+    setAnnouncements((as) => as.filter((a) => a.id !== id));
+    supabase.from('announcements').delete().eq('id', id).then(({ error }) => error && console.error(error));
+  };
 
   // admin — weekly meetings
-  const setMeetingDate = (date) =>
+  const setMeetingDate = (date) => {
     setWeeklyCycle((wc) => ({ ...wc, currentWeek: { ...wc.currentWeek, meetingDate: date } }));
-  const toggleSubmissions = () =>
-    setWeeklyCycle((wc) => ({ ...wc, currentWeek: { ...wc.currentWeek, submissionsOpen: !wc.currentWeek.submissionsOpen } }));
-  const toggleAttendance = (memberId) =>
-    setWeeklyCycle((wc) => {
-      const attending = wc.currentWeek.attendance.includes(memberId);
-      const attendance = attending
-        ? wc.currentWeek.attendance.filter((id) => id !== memberId)
-        : [...wc.currentWeek.attendance, memberId];
-      return { ...wc, currentWeek: { ...wc.currentWeek, attendance } };
-    });
+    if (!weeklyCycle.currentWeek.id) return;
+    supabase
+      .from('cohort_weeks')
+      .update({ meeting_date: date })
+      .eq('id', weeklyCycle.currentWeek.id)
+      .then(({ error }) => error && console.error(error));
+  };
+  const toggleSubmissions = () => {
+    const next = !weeklyCycle.currentWeek.submissionsOpen;
+    setWeeklyCycle((wc) => ({ ...wc, currentWeek: { ...wc.currentWeek, submissionsOpen: next } }));
+    if (!weeklyCycle.currentWeek.id) return;
+    supabase
+      .from('cohort_weeks')
+      .update({ submissions_open: next })
+      .eq('id', weeklyCycle.currentWeek.id)
+      .then(({ error }) => error && console.error(error));
+  };
+  const toggleAttendance = (memberId) => {
+    const weekId = weeklyCycle.currentWeek.id;
+    if (!weekId) return;
+    const attending = weeklyCycle.currentWeek.attendance.includes(memberId);
+    const attendance = attending
+      ? weeklyCycle.currentWeek.attendance.filter((id) => id !== memberId)
+      : [...weeklyCycle.currentWeek.attendance, memberId];
+    setWeeklyCycle((wc) => ({ ...wc, currentWeek: { ...wc.currentWeek, attendance } }));
+    if (attending) {
+      supabase
+        .from('week_attendance')
+        .delete()
+        .eq('week_id', weekId)
+        .eq('member_id', memberId)
+        .then(({ error }) => error && console.error(error));
+    } else {
+      supabase
+        .from('week_attendance')
+        .insert({ week_id: weekId, member_id: memberId })
+        .then(({ error }) => error && console.error(error));
+    }
+  };
   const toggleSubmitted = (memberId) => {
     const m = members.find((mem) => mem.id === memberId);
     if (m) updateMember(memberId, { submittedThisWeek: !m.submittedThisWeek });
   };
   const archiveCurrentWeek = () => {
+    const weekId = weeklyCycle.currentWeek.id;
+    if (!weekId) return;
     const activeMembers = members.filter((m) => m.memberStatus === 'active');
     const submittedCount = activeMembers.filter((m) => m.submittedThisWeek).length;
-    const entry = {
-      number: weeklyCycle.currentWeek.number,
-      meetingDate: weeklyCycle.currentWeek.meetingDate,
-      submittedCount,
-      totalCount: activeMembers.length,
-    };
+    const totalCount = activeMembers.length;
+    const entry = { number: weeklyCycle.currentWeek.number, meetingDate: weeklyCycle.currentWeek.meetingDate, submittedCount, totalCount };
     setWeeklyCycle((wc) => ({ ...wc, archive: [entry, ...wc.archive] }));
+    supabase
+      .from('cohort_weeks')
+      .update({ archived: true, submitted_count: submittedCount, total_count: totalCount })
+      .eq('id', weekId)
+      .then(({ error }) => error && console.error(error));
   };
   const openNewWeek = () => {
-    setWeeklyCycle((wc) => ({
-      ...wc,
-      currentWeek: {
-        number: wc.currentWeek.number + 1,
-        meetingDate: wc.currentWeek.meetingDate,
-        submissionsOpen: true,
-        attendance: [],
-      },
-    }));
+    const nextNumber = weeklyCycle.currentWeek.number + 1;
+    const meetingDate = weeklyCycle.currentWeek.meetingDate || new Date().toISOString().slice(0, 10);
+    supabase
+      .from('cohort_weeks')
+      .insert({ number: nextNumber, meeting_date: meetingDate, submissions_open: true, archived: false })
+      .select()
+      .single()
+      .then(({ data, error }) => {
+        if (error) return console.error(error);
+        setWeeklyCycle((wc) => ({
+          ...wc,
+          currentWeek: { id: data.id, number: data.number, meetingDate: data.meeting_date, submissionsOpen: data.submissions_open, attendance: [] },
+        }));
+      });
+    const activeMembers = members.filter((m) => m.memberStatus === 'active');
     setMembers((ms) => ms.map((m) => (m.memberStatus === 'active' ? { ...m, submittedThisWeek: false } : m)));
+    if (activeMembers.length) {
+      supabase
+        .from('profiles')
+        .update({ submitted_this_week: false })
+        .in('id', activeMembers.map((m) => m.id))
+        .then(({ error }) => error && console.error(error));
+    }
   };
 
   // admin — settings
-  const updateAdminSettings = (fields) => setAdminSettings((s) => ({ ...s, ...fields }));
+  const updateAdminSettings = (fields) => {
+    setAdminSettings((s) => ({ ...s, ...fields }));
+    supabase
+      .from('admin_settings')
+      .update(toAdminSettingsColumns(fields))
+      .eq('id', true)
+      .then(({ error }) => error && console.error(error));
+  };
 
   // admin — notifications
   const sendReminder = (text) => {
@@ -474,9 +713,15 @@ export default function App() {
 
   // admin — resources
   const addResource = (title, source, tag, blurb) => {
-    const style = resourceTagStyles[tag] || resourceTagStyles.Toolkit;
-    const resource = { title, source, tag, tagBg: style.tagBg, tagFg: style.tagFg, blurb };
-    setResources((rs) => [resource, ...rs]);
+    supabase
+      .from('resources')
+      .insert({ member_id: profile.id, title, source, tag, blurb })
+      .select()
+      .single()
+      .then(({ data, error }) => {
+        if (error) return console.error(error);
+        setResources((rs) => [mapResourceRow(data), ...rs]);
+      });
   };
 
   // intake
@@ -651,6 +896,8 @@ export default function App() {
               onToggleComments={toggleComments}
               onSetCommentDraft={setCommentDraft}
               onAddComment={addComment}
+              memberInitials={profile.initials}
+              memberColor={profile.color}
             />
           )}
 

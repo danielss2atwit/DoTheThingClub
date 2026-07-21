@@ -19,6 +19,8 @@ export default function Feed({
   onToggleComments,
   onSetCommentDraft,
   onAddComment,
+  memberInitials,
+  memberColor,
 }) {
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -30,7 +32,7 @@ export default function Feed({
               width: 42,
               height: 42,
               borderRadius: 13,
-              background: 'var(--lilac,#6562ac)',
+              background: memberColor || 'var(--lilac,#6562ac)',
               color: '#fff',
               display: 'flex',
               alignItems: 'center',
@@ -40,7 +42,7 @@ export default function Feed({
               flex: 'none',
             }}
           >
-            MC
+            {memberInitials}
           </div>
           <div style={{ flex: 1 }}>
             <textarea
@@ -136,7 +138,7 @@ export default function Feed({
       {/* posts */}
       {posts.map((p) => {
         const km = kindMap[p.kind] || kindMap.try;
-        const hf = p.highFives + (p.hiFived ? 1 : 0);
+        const hf = p.highFives;
         const open = !!openComments[p.id];
         return (
           <div key={p.id} style={{ background: 'var(--surface,#fff)', border: '1px solid var(--line,rgba(43,36,64,.1))', borderRadius: 20, padding: 20, animation: 'floatin .3s ease' }}>
@@ -166,7 +168,7 @@ export default function Feed({
                   </span>
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--muted,#8a83a0)', fontWeight: 600, marginTop: 2 }}>
-                  {p.project} · {p.time}
+                  {p.project ? `${p.project} · ` : ''}{p.time}
                 </div>
               </div>
             </div>
@@ -276,10 +278,10 @@ export default function Feed({
                       fontWeight: 800,
                       fontSize: 11,
                       color: '#fff',
-                      background: 'var(--lilac,#6562ac)',
+                      background: memberColor || 'var(--lilac,#6562ac)',
                     }}
                   >
-                    MC
+                    {memberInitials}
                   </div>
                   <input
                     value={commentDrafts[p.id] || ''}
