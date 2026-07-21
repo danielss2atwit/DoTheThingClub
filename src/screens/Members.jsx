@@ -26,22 +26,32 @@ export default function Members({
 }) {
   const [nameDraft, setNameDraft] = useState('');
   const [emailDraft, setEmailDraft] = useState('');
-  const [error, setError] = useState(false);
+  const [error, setError] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState('');
 
   const pending = members.filter((m) => m.memberStatus === 'pending');
   const others = members.filter((m) => m.memberStatus !== 'pending');
 
-  const submitInvite = () => {
+  const submitInvite = async () => {
     const n = nameDraft.trim();
     const e = emailDraft.trim();
     if (!n || !e) {
-      setError(true);
+      setError('Add a name and email before sending an invite.');
       return;
     }
-    onInviteMember(n, e);
+    setSending(true);
+    setError('');
+    setSent('');
+    const result = await onInviteMember(n, e);
+    setSending(false);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
     setNameDraft('');
     setEmailDraft('');
-    setError(false);
+    setSent(`Invite sent to ${e}.`);
   };
 
   return (
@@ -53,6 +63,7 @@ export default function Members({
           <input value={emailDraft} onChange={(e) => setEmailDraft(e.target.value)} placeholder="Email address" style={fieldStyle} />
           <button
             onClick={submitInvite}
+            disabled={sending}
             style={{
               flex: 'none',
               background: 'var(--coral,#f26f63)',
@@ -63,16 +74,18 @@ export default function Members({
               fontSize: 13.5,
               padding: '10px 18px',
               borderRadius: 12,
-              cursor: 'pointer',
+              cursor: sending ? 'default' : 'pointer',
+              opacity: sending ? 0.7 : 1,
             }}
           >
-            Send invite
+            {sending ? 'Sending…' : 'Send invite'}
           </button>
         </div>
         {error && (
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#d0554a', marginTop: 8 }}>
-            Add a name and email before sending an invite.
-          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#d0554a', marginTop: 8 }}>{error}</div>
+        )}
+        {sent && (
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#3f7d58', marginTop: 8 }}>{sent}</div>
         )}
       </div>
 

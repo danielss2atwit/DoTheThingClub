@@ -1,6 +1,6 @@
 import AnnouncementCard from '../components/AnnouncementCard';
 
-export default function Dashboard({ streak, doneM, totalM, overallLabel, ringGrad, goals, peers, announcements, onGoals, onIntake, onFeed, onToggleView }) {
+export default function Dashboard({ streak, doneM, totalM, overallLabel, ringGrad, goals, peers, announcements, onGoals, onIntake, onFeed, onToggleView, memberName, isAdmin }) {
   return (
     <div style={{ maxWidth: 1080, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
@@ -14,29 +14,31 @@ export default function Dashboard({ streak, doneM, totalM, overallLabel, ringGra
               fontStyle: 'var(--head-style,normal)',
             }}
           >
-            Hey Maya 👋
+            Hey {memberName} 👋
           </div>
           <div style={{ fontSize: 15, color: 'var(--muted,#8a83a0)', fontWeight: 600, marginTop: 5 }}>
             You&rsquo;re doing the brave thing. Here&rsquo;s where you&rsquo;re at this week.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
-          <button
-            onClick={onToggleView}
-            style={{
-              background: 'none',
-              color: '#5a5470',
-              border: '1px solid var(--line,rgba(43,36,64,.1))',
-              fontFamily: 'inherit',
-              fontWeight: 700,
-              fontSize: 12.5,
-              padding: '10px 15px',
-              borderRadius: 12,
-              cursor: 'pointer',
-            }}
-          >
-            Switch to Admin View →
-          </button>
+          {isAdmin && (
+            <button
+              onClick={onToggleView}
+              style={{
+                background: 'none',
+                color: '#5a5470',
+                border: '1px solid var(--line,rgba(43,36,64,.1))',
+                fontFamily: 'inherit',
+                fontWeight: 700,
+                fontSize: 12.5,
+                padding: '10px 15px',
+                borderRadius: 12,
+                cursor: 'pointer',
+              }}
+            >
+              Switch to Admin View →
+            </button>
+          )}
           <div style={{ background: 'var(--surface,#fff)', border: '1px solid var(--line,rgba(43,36,64,.1))', borderRadius: 14, padding: '11px 16px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-display,\'Fredoka\')', fontWeight: 700, fontSize: 22, color: 'var(--coral,#f26f63)', fontStyle: 'var(--head-style,normal)' }}>
               {streak}🔥

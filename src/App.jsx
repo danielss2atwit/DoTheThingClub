@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from './lib/supabaseClient';
+import AuthScreen from './components/AuthScreen';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import NotificationsDropdown from './components/NotificationsDropdown';
@@ -20,13 +22,10 @@ import {
   intakeSteps,
   goalColorRotation,
   weekEndDay,
-  initialGoals,
-  initialWeeklyGoals,
   initialPeers,
   initialPosts,
   initialResources,
   initialNotifications,
-  initialMembers,
   initialAnnouncements,
   initialWeeklyCycle,
   initialAdminSettings,
@@ -41,6 +40,68 @@ const resourceTagStyles = {
 
 const emptyAreaDraft = { category: '', goal: '', why: '' };
 
+function mapProfileRow(row, goals = [], weeklyGoals = []) {
+  return {
+    id: row.id,
+    name: row.name,
+    initials: row.initials,
+    color: row.color,
+    email: row.email,
+    project: row.project,
+    status: row.status,
+    memberStatus: row.member_status,
+    joinedDate: row.joined_date || '',
+    submittedThisWeek: row.submitted_this_week,
+    goals,
+    weeklyGoals,
+  };
+}
+
+function mapMilestoneRow(row) {
+  return { id: row.id, text: row.text, done: row.done };
+}
+
+function mapGoalRow(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    why: row.why,
+    barColor: row.bar_color,
+    milestones: (row.milestones || []).map(mapMilestoneRow),
+  };
+}
+
+function formatShortDate(iso) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function mapWeeklyGoalRow(row) {
+  return {
+    id: row.id,
+    text: row.text,
+    why: row.why,
+    date: formatShortDate(row.created_at),
+    goalId: row.goal_id,
+    reflected: row.reflected,
+    completed: row.completed,
+    reflection: row.reflection,
+  };
+}
+
+const memberFieldToColumn = {
+  memberStatus: 'member_status',
+  joinedDate: 'joined_date',
+  submittedThisWeek: 'submitted_this_week',
+};
+
+function toProfileColumns(fields) {
+  const out = {};
+  for (const [key, value] of Object.entries(fields)) {
+    out[memberFieldToColumn[key] || key] = value;
+  }
+  return out;
+}
+
 function withMilestoneStats(goals) {
   return goals.map((g) => {
     const done = g.milestones.filter((m) => m.done).length;
@@ -51,6 +112,10 @@ function withMilestoneStats(goals) {
 }
 
 export default function App() {
+  const [session, setSession] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [profile, setProfile] = useState(null);
+
   const [screen, setScreenState] = useState('dashboard');
   const [notifOpen, setNotifOpen] = useState(false);
   const [view, setView] = useState('member');
@@ -61,14 +126,14 @@ export default function App() {
   const [openComments, setOpenComments] = useState({});
   const [streak] = useState(3);
 
-  const [goals, setGoals] = useState(initialGoals);
-  const [weeklyGoals, setWeeklyGoals] = useState(initialWeeklyGoals);
+  const [goals, setGoals] = useState([]);
+  const [weeklyGoals, setWeeklyGoals] = useState([]);
   const [peers] = useState(initialPeers);
   const [posts, setPosts] = useState(initialPosts);
   const [resources, setResources] = useState(initialResources);
   const [notifications, setNotifications] = useState(initialNotifications);
 
-  const [members, setMembers] = useState(initialMembers);
+  const [members, setMembers] = useState([]);
   const [announcements, setAnnouncements] = useState(initialAnnouncements);
   const [weeklyCycle, setWeeklyCycle] = useState(initialWeeklyCycle);
   const [adminSettings, setAdminSettings] = useState(initialAdminSettings);
@@ -82,6 +147,81 @@ export default function App() {
   const [fears, setFears] = useState([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggested, setSuggested] = useState([]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthChecked(true);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const fetchMembers = async () => {
+    const [{ data: profileRows }, { data: goalRows }, { data: weeklyRows }] = await Promise.all([
+      supabase.from('profiles').select('*').order('created_at', { ascending: true }),
+      supabase
+        .from('goals')
+        .select('*, milestones(*)')
+        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: true, foreignTable: 'milestones' }),
+      supabase.from('weekly_goals').select('*').order('created_at', { ascending: false }),
+    ]);
+    const goalsByMember = {};
+    (goalRows || []).forEach((g) => {
+      (goalsByMember[g.member_id] ||= []).push(mapGoalRow(g));
+    });
+    const weeklyByMember = {};
+    (weeklyRows || []).forEach((wg) => {
+      (weeklyByMember[wg.member_id] ||= []).push(mapWeeklyGoalRow(wg));
+    });
+    setMembers((profileRows || []).map((row) => mapProfileRow(row, goalsByMember[row.id] || [], weeklyByMember[row.id] || [])));
+  };
+
+  const fetchOwnGoals = async (userId) => {
+    const { data } = await supabase
+      .from('goals')
+      .select('*, milestones(*)')
+      .eq('member_id', userId)
+      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: true, foreignTable: 'milestones' });
+    setGoals((data || []).map(mapGoalRow));
+
+    const { data: weeklyData } = await supabase
+      .from('weekly_goals')
+      .select('*')
+      .eq('member_id', userId)
+      .order('created_at', { ascending: false });
+    setWeeklyGoals((weeklyData || []).map(mapWeeklyGoalRow));
+  };
+
+  useEffect(() => {
+    if (!session) {
+      setProfile(null);
+      setMembers([]);
+      setGoals([]);
+      setWeeklyGoals([]);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data }) => {
+        if (!cancelled) setProfile(data);
+      });
+    fetchMembers();
+    fetchOwnGoals(session.user.id);
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  const signOut = () => supabase.auth.signOut();
 
   const setScreen = (s) => {
     setScreenState(s);
@@ -156,49 +296,63 @@ export default function App() {
   };
 
   // goals
-  const toggleMilestone = (gid, mid) =>
+  const toggleMilestone = (gid, mid) => {
+    const goal = goals.find((g) => g.id === gid);
+    const milestone = goal?.milestones.find((m) => m.id === mid);
+    if (!milestone) return;
+    const nextDone = !milestone.done;
     setGoals((gs) =>
       gs.map((g) =>
-        g.id !== gid
-          ? g
-          : { ...g, milestones: g.milestones.map((m) => (m.id === mid ? { ...m, done: !m.done } : m)) }
+        g.id !== gid ? g : { ...g, milestones: g.milestones.map((m) => (m.id === mid ? { ...m, done: nextDone } : m)) }
       )
     );
+    supabase.from('milestones').update({ done: nextDone }).eq('id', mid).then(({ error }) => error && console.error(error));
+  };
 
-  const updateGoal = (gid, title, why) =>
+  const updateGoal = (gid, title, why) => {
     setGoals((gs) => gs.map((g) => (g.id === gid ? { ...g, title, why } : g)));
-  const deleteGoal = (gid) => setGoals((gs) => gs.filter((g) => g.id !== gid));
+    supabase.from('goals').update({ title, why }).eq('id', gid).then(({ error }) => error && console.error(error));
+  };
+  const deleteGoal = (gid) => {
+    setGoals((gs) => gs.filter((g) => g.id !== gid));
+    supabase.from('goals').delete().eq('id', gid).then(({ error }) => error && console.error(error));
+  };
 
-  const addMilestone = (gid, text) =>
-    setGoals((gs) =>
-      gs.map((g) =>
-        g.id !== gid
-          ? g
-          : { ...g, milestones: [...g.milestones, { id: 'm' + Date.now() + Math.random().toString(36).slice(2, 6), text, done: false }] }
-      )
-    );
-  const updateMilestone = (gid, mid, text) =>
+  const addMilestone = (gid, text) => {
+    supabase
+      .from('milestones')
+      .insert({ goal_id: gid, text })
+      .select()
+      .single()
+      .then(({ data, error }) => {
+        if (error) return console.error(error);
+        setGoals((gs) => gs.map((g) => (g.id !== gid ? g : { ...g, milestones: [...g.milestones, mapMilestoneRow(data)] })));
+      });
+  };
+  const updateMilestone = (gid, mid, text) => {
     setGoals((gs) =>
       gs.map((g) => (g.id !== gid ? g : { ...g, milestones: g.milestones.map((m) => (m.id === mid ? { ...m, text } : m)) }))
     );
-  const deleteMilestone = (gid, mid) =>
+    supabase.from('milestones').update({ text }).eq('id', mid).then(({ error }) => error && console.error(error));
+  };
+  const deleteMilestone = (gid, mid) => {
     setGoals((gs) => gs.map((g) => (g.id !== gid ? g : { ...g, milestones: g.milestones.filter((m) => m.id !== mid) })));
+    supabase.from('milestones').delete().eq('id', mid).then(({ error }) => error && console.error(error));
+  };
 
   const addWeeklyGoal = (text, why, goalId) => {
     const t = text.trim();
     const w = why.trim();
     if (!t || !w) return false;
-    const goal = {
-      id: 'w' + Date.now(),
-      text: t,
-      why: w,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      goalId: goalId || null,
-      reflected: false,
-      completed: null,
-      reflection: '',
-    };
-    setWeeklyGoals((gs) => [goal, ...gs]);
+    supabase
+      .from('weekly_goals')
+      .insert({ member_id: profile.id, text: t, why: w, goal_id: goalId || null })
+      .select()
+      .single()
+      .then(({ data, error }) => {
+        if (error) return console.error(error);
+        setWeeklyGoals((gs) => [mapWeeklyGoalRow(data), ...gs]);
+      });
     return true;
   };
 
@@ -206,41 +360,53 @@ export default function App() {
     const r = reflection.trim();
     if (completed === null || !r) return false;
     setWeeklyGoals((gs) => gs.map((g) => (g.id === id ? { ...g, reflected: true, completed, reflection: r } : g)));
+    supabase
+      .from('weekly_goals')
+      .update({ reflected: true, completed, reflection: r })
+      .eq('id', id)
+      .then(({ error }) => error && console.error(error));
     return true;
   };
 
   // admin — members
-  const inviteMember = (name, email) => {
-    const initials = name
-      .split(' ')
-      .map((w) => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-    const member = {
-      id: 'u' + Date.now(),
-      name,
-      initials,
-      color: '#8a83a0',
-      email,
-      project: '',
-      status: 'idle',
-      memberStatus: 'invited',
-      joinedDate: '',
-      submittedThisWeek: false,
-      goals: [],
-      weeklyGoals: [],
-    };
-    setMembers((ms) => [...ms, member]);
+  const inviteMember = async (name, email) => {
+    const trimmedEmail = email.trim().toLowerCase();
+    const alreadyMember = members.some((m) => m.email?.toLowerCase() === trimmedEmail);
+    if (alreadyMember) return { ok: false, message: 'That email is already part of the cohort.' };
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: trimmedEmail,
+      options: {
+        shouldCreateUser: true,
+        data: { name: name.trim(), invited: true },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    if (error) return { ok: false, message: error.message };
+
+    await fetchMembers();
+    return { ok: true };
   };
-  const updateMember = (id, fields) =>
+  const updateMember = (id, fields) => {
     setMembers((ms) => ms.map((m) => (m.id === id ? { ...m, ...fields } : m)));
-  const approveMember = (id) => updateMember(id, { memberStatus: 'active', status: 'active', joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
-  const declineMember = (id) => setMembers((ms) => ms.filter((m) => m.id !== id));
-  const markMemberJoined = (id) => updateMember(id, { memberStatus: 'active', status: 'active', joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
+    supabase
+      .from('profiles')
+      .update(toProfileColumns(fields))
+      .eq('id', id)
+      .then(({ error }) => error && console.error(error));
+  };
+  const approveMember = (id) => updateMember(id, { memberStatus: 'active', status: 'active', joinedDate: new Date().toISOString().slice(0, 10) });
+  const declineMember = (id) => {
+    setMembers((ms) => ms.filter((m) => m.id !== id));
+    supabase.from('profiles').delete().eq('id', id).then(({ error }) => error && console.error(error));
+  };
+  const markMemberJoined = (id) => updateMember(id, { memberStatus: 'active', status: 'active', joinedDate: new Date().toISOString().slice(0, 10) });
   const deactivateMember = (id) => updateMember(id, { memberStatus: 'deactivated', status: 'idle' });
   const reactivateMember = (id) => updateMember(id, { memberStatus: 'active', status: 'active' });
-  const removeMember = (id) => setMembers((ms) => ms.filter((m) => m.id !== id));
+  const removeMember = (id) => {
+    setMembers((ms) => ms.filter((m) => m.id !== id));
+    supabase.from('profiles').delete().eq('id', id).then(({ error }) => error && console.error(error));
+  };
 
   // admin — announcements
   const addAnnouncement = (type, title, body) => {
@@ -378,18 +544,28 @@ export default function App() {
     }
     if (stepName === 'suggest') {
       if (suggestLoading) return;
-      const gs = suggested.map((grp) => ({
-        id: 'g' + Date.now() + Math.random().toString(36).slice(2, 6),
-        title: grp.title,
-        why: grp.why,
-        barColor: grp.barColor,
-        milestones: grp.items.map((it, i) => ({
-          id: 'sm' + Date.now() + i + Math.random().toString(36).slice(2, 6),
-          text: it.text,
-          done: false,
-        })),
-      }));
-      setGoals((gs2) => [...gs2, ...gs]);
+      const memberId = profile.id;
+      (async () => {
+        const newGoals = [];
+        for (const grp of suggested) {
+          const { data: goalRow, error: goalErr } = await supabase
+            .from('goals')
+            .insert({ member_id: memberId, title: grp.title, why: grp.why, bar_color: grp.barColor })
+            .select()
+            .single();
+          if (goalErr || !goalRow) {
+            console.error(goalErr);
+            continue;
+          }
+          const { data: milestoneRows, error: msErr } = await supabase
+            .from('milestones')
+            .insert(grp.items.map((it) => ({ goal_id: goalRow.id, text: it.text })))
+            .select();
+          if (msErr) console.error(msErr);
+          newGoals.push({ ...mapGoalRow(goalRow), milestones: (milestoneRows || []).map(mapMilestoneRow) });
+        }
+        setGoals((gs2) => [...gs2, ...newGoals]);
+      })();
       setScreenState('goals');
       setIntakeStep(0);
     }
@@ -418,6 +594,11 @@ export default function App() {
 
   const unreadCount = notifications.filter((n) => n.unread).length;
   const [screenTitle, screenSub] = screenTitles[screen] || screenTitles.dashboard;
+  const isAdmin = profile?.role === 'admin';
+
+  if (!authChecked) return null;
+  if (!session) return <AuthScreen />;
+  if (!profile) return null;
 
   return (
     <div style={rootStyle}>
@@ -431,6 +612,7 @@ export default function App() {
           unreadCount={unreadCount}
           onToggleNotif={toggleNotif}
           onPost={goPost}
+          onSignOut={signOut}
         />
 
         {notifOpen && <NotificationsDropdown notifications={notifications} onMarkAllRead={markAllRead} />}
@@ -450,6 +632,8 @@ export default function App() {
               onIntake={goIntake}
               onFeed={goFeed}
               onToggleView={toggleView}
+              memberName={profile.name?.split(' ')[0] || profile.name}
+              isAdmin={isAdmin}
             />
           )}
 
