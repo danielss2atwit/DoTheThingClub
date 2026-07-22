@@ -23,6 +23,7 @@ export default function Members({
   onDeactivate,
   onReactivate,
   onRemove,
+  onViewProfile,
 }) {
   const [nameDraft, setNameDraft] = useState('');
   const [emailDraft, setEmailDraft] = useState('');
@@ -106,6 +107,7 @@ export default function Members({
                 onDeactivate={onDeactivate}
                 onReactivate={onReactivate}
                 onRemove={onRemove}
+                onViewProfile={onViewProfile}
               />
             ))}
           </div>
@@ -128,6 +130,7 @@ export default function Members({
               onDeactivate={onDeactivate}
               onReactivate={onReactivate}
               onRemove={onRemove}
+              onViewProfile={onViewProfile}
             />
           ))}
         </div>

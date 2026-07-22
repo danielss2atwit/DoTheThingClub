@@ -93,23 +93,8 @@ export const adminNav = [
   { key: 'admin-settings', label: 'Settings', icon: '⚙' },
 ];
 
-export const initialPeers = [
-  { name: 'Priya N.', initials: 'PN', color: '#f26f63', project: 'This week: cold-emailing a professor', status: 'active' },
-  { name: 'Aaliyah R.', initials: 'AR', color: '#6562ac', project: 'Focus: asking for help more', status: 'active' },
-  { name: 'Sofia M.', initials: 'SM', color: '#e0994e', project: 'Focus: auditioning for things', status: 'idle' },
-  { name: 'Grace K.', initials: 'GK', color: '#5a9e78', project: 'Focus: saying yes to invites', status: 'active' },
-  { name: 'Nia J.', initials: 'NJ', color: '#c264a0', project: 'Focus: sharing opinions in class', status: 'idle' },
-];
-
 export const reminderTemplates = [
   "Don't forget to submit your challenge!",
   'Meeting starts in 30 minutes.',
   "Reflect on last week's challenge.",
-];
-
-export const initialNotifications = [
-  { id: 'n1', icon: '✋', bg: 'rgba(242,111,99,.14)', text: 'Grace K. and 4 others high-fived your update', time: '12m ago', unread: true },
-  { id: 'n2', icon: '💬', bg: 'rgba(101,98,172,.14)', text: 'Aaliyah commented: "you’ve got this!"', time: '1h ago', unread: true },
-  { id: 'n3', icon: '📅', bg: 'rgba(255,216,76,.22)', text: 'Your weekly update is due Friday — got a flop to share?', time: '3h ago', unread: true },
-  { id: 'n4', icon: '🎉', bg: 'rgba(90,158,120,.14)', text: 'You completed a challenge: "Ask a question in lecture"', time: 'yesterday', unread: false },
 ];

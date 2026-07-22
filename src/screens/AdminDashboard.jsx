@@ -8,7 +8,7 @@ const statCardStyle = {
   flex: '1 1 200px',
 };
 
-export default function AdminDashboard({ members, weeklyCycle, reminderTemplates, onSendReminder, onToggleView }) {
+export default function AdminDashboard({ members, weeklyCycle, reminderTemplates, onSendReminder, onToggleView, onViewProfile }) {
   const [customMessage, setCustomMessage] = useState('');
   const [sentMessage, setSentMessage] = useState('');
 
@@ -90,7 +90,11 @@ export default function AdminDashboard({ members, weeklyCycle, reminderTemplates
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             {notYetSubmitted.map((m) => (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg,#fdfaf3)', border: '1px solid var(--line,rgba(43,36,64,.1))', borderRadius: 13, padding: '8px 13px' }}>
+              <div
+                key={m.id}
+                onClick={() => onViewProfile(m.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg,#fdfaf3)', border: '1px solid var(--line,rgba(43,36,64,.1))', borderRadius: 13, padding: '8px 13px', cursor: 'pointer' }}
+              >
                 <div style={{ width: 28, height: 28, borderRadius: 9, background: m.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, flex: 'none' }}>
                   {m.initials}
                 </div>

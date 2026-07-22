@@ -22,8 +22,6 @@ import {
   intakeSteps,
   goalColorRotation,
   weekEndDay,
-  initialPeers,
-  initialNotifications,
   reminderTemplates,
 } from './data';
 
@@ -84,8 +82,13 @@ function mapProfileRow(row, goals = [], weeklyGoals = []) {
     project: row.project,
     status: row.status,
     memberStatus: row.member_status,
+    role: row.role,
     joinedDate: row.joined_date || '',
     submittedThisWeek: row.submitted_this_week,
+    bio: row.bio || '',
+    focusTitle: row.focus_title || '',
+    focusBody: row.focus_body || '',
+    tags: row.tags || [],
     goals,
     weeklyGoals,
   };
@@ -133,7 +136,7 @@ function formatRelativeTime(iso) {
 
 function mapCommentRow(row) {
   const author = row.profiles || {};
-  return { author: author.name || 'Member', initials: author.initials || '', color: author.color || '#8a83a0', text: row.text };
+  return { memberId: row.member_id, author: author.name || 'Member', initials: author.initials || '', color: author.color || '#8a83a0', text: row.text };
 }
 
 function mapPostRow(row, userId) {
@@ -141,6 +144,7 @@ function mapPostRow(row, userId) {
   const highFives = row.post_high_fives || [];
   return {
     id: row.id,
+    authorId: row.member_id,
     author: author.name || 'Member',
     initials: author.initials || '',
     color: author.color || '#8a83a0',
@@ -153,6 +157,10 @@ function mapPostRow(row, userId) {
     hiFived: highFives.some((hf) => hf.member_id === userId),
     comments: (row.post_comments || []).map(mapCommentRow),
   };
+}
+
+function mapNotificationRow(row) {
+  return { id: row.id, icon: row.icon, bg: row.bg, text: row.text, time: formatRelativeTime(row.created_at), unread: row.unread };
 }
 
 function mapAnnouncementRow(row) {
@@ -170,6 +178,8 @@ const memberFieldToColumn = {
   memberStatus: 'member_status',
   joinedDate: 'joined_date',
   submittedThisWeek: 'submitted_this_week',
+  focusTitle: 'focus_title',
+  focusBody: 'focus_body',
 };
 
 function toProfileColumns(fields) {
@@ -193,6 +203,8 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [profile, setProfile] = useState(null);
+  const [viewedMemberId, setViewedMemberId] = useState(null);
+  const [profileReturnScreen, setProfileReturnScreen] = useState('dashboard');
 
   const [screen, setScreenState] = useState('dashboard');
   const [notifOpen, setNotifOpen] = useState(false);
@@ -206,10 +218,9 @@ export default function App() {
 
   const [goals, setGoals] = useState([]);
   const [weeklyGoals, setWeeklyGoals] = useState([]);
-  const [peers] = useState(initialPeers);
   const [posts, setPosts] = useState([]);
   const [resources, setResources] = useState([]);
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState([]);
 
   const [members, setMembers] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -351,6 +362,15 @@ export default function App() {
     if (data) setAdminSettings(mapAdminSettingsRow(data));
   };
 
+  const fetchNotifications = async (userId) => {
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('member_id', userId)
+      .order('created_at', { ascending: false });
+    setNotifications((data || []).map(mapNotificationRow));
+  };
+
   useEffect(() => {
     if (!session) {
       setProfile(null);
@@ -360,6 +380,7 @@ export default function App() {
       setPosts([]);
       setAnnouncements([]);
       setResources([]);
+      setNotifications([]);
       return;
     }
     let cancelled = false;
@@ -369,7 +390,7 @@ export default function App() {
       .eq('id', session.user.id)
       .single()
       .then(({ data }) => {
-        if (!cancelled) setProfile(data);
+        if (!cancelled && data) setProfile(mapProfileRow(data));
       });
     fetchMembers();
     fetchOwnGoals(session.user.id);
@@ -378,6 +399,7 @@ export default function App() {
     fetchWeeklyCycle();
     fetchResources();
     fetchAdminSettings();
+    fetchNotifications(session.user.id);
     return () => {
       cancelled = true;
     };
@@ -391,14 +413,22 @@ export default function App() {
   };
 
   const toggleNotif = () => setNotifOpen((o) => !o);
-  const markAllRead = () => setNotifications((ns) => ns.map((n) => ({ ...n, unread: false })));
+  const markAllRead = () => {
+    setNotifications((ns) => ns.map((n) => ({ ...n, unread: false })));
+    if (!profile) return;
+    supabase
+      .from('notifications')
+      .update({ unread: false })
+      .eq('member_id', profile.id)
+      .eq('unread', true)
+      .then(({ error }) => error && console.error(error));
+  };
 
   const goPost = () => {
     setScreenState('feed');
     setNotifOpen(false);
   };
   const goGoals = () => setScreen('goals');
-  const goFeed = () => setScreen('feed');
   const goIntake = () => {
     setIntakeStep(0);
     setAreas([]);
@@ -410,7 +440,23 @@ export default function App() {
     setScreenState('intake');
     setNotifOpen(false);
   };
-  const goProfile = () => setScreen('profile');
+  const goProfile = () => {
+    setViewedMemberId(null);
+    setScreen('profile');
+  };
+  const viewMemberProfile = (id) => {
+    if (!id || id === profile?.id) {
+      goProfile();
+      return;
+    }
+    setProfileReturnScreen(screen);
+    setViewedMemberId(id);
+    setScreen('profile');
+  };
+  const backFromProfile = () => {
+    setViewedMemberId(null);
+    setScreen(profileReturnScreen);
+  };
 
   const toggleView = () => {
     const nextView = view === 'member' ? 'admin' : 'member';
@@ -579,6 +625,17 @@ export default function App() {
       .eq('id', id)
       .then(({ error }) => error && console.error(error));
   };
+
+  // profile — the signed-in member editing their own info
+  const updateProfile = (fields) => {
+    setProfile((p) => ({ ...p, ...fields }));
+    setMembers((ms) => ms.map((m) => (m.id === profile.id ? { ...m, ...fields } : m)));
+    supabase
+      .from('profiles')
+      .update(toProfileColumns(fields))
+      .eq('id', profile.id)
+      .then(({ error }) => error && console.error(error));
+  };
   const approveMember = (id) => updateMember(id, { memberStatus: 'active', status: 'active', joinedDate: new Date().toISOString().slice(0, 10) });
   const declineMember = (id) => {
     setMembers((ms) => ms.filter((m) => m.id !== id));
@@ -707,8 +764,15 @@ export default function App() {
 
   // admin — notifications
   const sendReminder = (text) => {
-    const n = { id: 'n' + Date.now(), icon: '🔔', bg: 'rgba(255,216,76,.22)', text, time: 'just now', unread: true };
-    setNotifications((ns) => [n, ...ns]);
+    const activeMembers = members.filter((m) => m.memberStatus === 'active');
+    if (!activeMembers.length) return;
+    supabase
+      .from('notifications')
+      .insert(activeMembers.map((m) => ({ member_id: m.id, text })))
+      .then(({ error }) => {
+        if (error) return console.error(error);
+        if (profile && activeMembers.some((m) => m.id === profile.id)) fetchNotifications(profile.id);
+      });
   };
 
   // admin — resources
@@ -838,8 +902,13 @@ export default function App() {
   const ringGrad = `conic-gradient(var(--accent,#ffd84c) ${overallPct * 3.6}deg, rgba(43,36,64,.09) 0deg)`;
 
   const unreadCount = notifications.filter((n) => n.unread).length;
-  const [screenTitle, screenSub] = screenTitles[screen] || screenTitles.dashboard;
+  const isOwnProfile = !viewedMemberId;
+  const viewedProfile = viewedMemberId ? members.find((m) => m.id === viewedMemberId) : profile;
+  const [screenTitleBase, screenSubBase] = screenTitles[screen] || screenTitles.dashboard;
+  const screenTitle = screen === 'profile' && !isOwnProfile && viewedProfile ? viewedProfile.name : screenTitleBase;
+  const screenSub = screen === 'profile' && !isOwnProfile ? 'Member profile' : screenSubBase;
   const isAdmin = profile?.role === 'admin';
+  const peers = members.filter((m) => m.memberStatus === 'active' && m.id !== profile?.id);
 
   if (!authChecked) return null;
   if (!session) return <AuthScreen />;
@@ -847,7 +916,7 @@ export default function App() {
 
   return (
     <div style={rootStyle}>
-      <Sidebar screen={screen} view={view} onNav={setScreen} onPost={goPost} onProfile={goProfile} />
+      <Sidebar screen={screen} view={view} onNav={setScreen} onPost={goPost} onProfile={goProfile} profile={profile} />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         <Topbar
@@ -875,10 +944,12 @@ export default function App() {
               announcements={announcements}
               onGoals={goGoals}
               onIntake={goIntake}
-              onFeed={goFeed}
+              onProfile={goProfile}
+              onViewProfile={viewMemberProfile}
               onToggleView={toggleView}
               memberName={profile.name?.split(' ')[0] || profile.name}
               isAdmin={isAdmin}
+              profile={profile}
             />
           )}
 
@@ -896,6 +967,7 @@ export default function App() {
               onToggleComments={toggleComments}
               onSetCommentDraft={setCommentDraft}
               onAddComment={addComment}
+              onViewProfile={viewMemberProfile}
               memberInitials={profile.initials}
               memberColor={profile.color}
             />
@@ -922,7 +994,15 @@ export default function App() {
             <Resources resources={resources} isAdmin={view === 'admin'} onAddResource={addResource} />
           )}
 
-          {screen === 'profile' && <Profile />}
+          {screen === 'profile' && viewedProfile && (
+            <Profile
+              key={viewedProfile.id}
+              profile={viewedProfile}
+              isOwnProfile={isOwnProfile}
+              onUpdateProfile={updateProfile}
+              onBack={isOwnProfile ? undefined : backFromProfile}
+            />
+          )}
 
           {screen === 'admin-dashboard' && (
             <AdminDashboard
@@ -931,6 +1011,7 @@ export default function App() {
               reminderTemplates={reminderTemplates}
               onSendReminder={sendReminder}
               onToggleView={toggleView}
+              onViewProfile={viewMemberProfile}
             />
           )}
 
@@ -945,6 +1026,7 @@ export default function App() {
               onDeactivate={deactivateMember}
               onReactivate={reactivateMember}
               onRemove={removeMember}
+              onViewProfile={viewMemberProfile}
             />
           )}
 
@@ -958,6 +1040,7 @@ export default function App() {
               onToggleSubmitted={toggleSubmitted}
               onArchiveWeek={archiveCurrentWeek}
               onOpenNewWeek={openNewWeek}
+              onViewProfile={viewMemberProfile}
             />
           )}
 

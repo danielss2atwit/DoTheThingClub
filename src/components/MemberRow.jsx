@@ -42,6 +42,7 @@ export default function MemberRow({
   onDeactivate,
   onReactivate,
   onRemove,
+  onViewProfile,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -96,6 +97,7 @@ export default function MemberRow({
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <div
+          onClick={() => onViewProfile(m.id)}
           style={{
             width: 42,
             height: 42,
@@ -108,6 +110,7 @@ export default function MemberRow({
             fontWeight: 800,
             fontSize: 14,
             flex: 'none',
+            cursor: 'pointer',
           }}
         >
           {m.initials}
@@ -123,7 +126,7 @@ export default function MemberRow({
           ) : (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                <span style={{ fontWeight: 700, fontSize: 14.5, color: '#2b2440' }}>{m.name}</span>
+                <span onClick={() => onViewProfile(m.id)} style={{ fontWeight: 700, fontSize: 14.5, color: '#2b2440', cursor: 'pointer' }}>{m.name}</span>
                 <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.02em', textTransform: 'uppercase', background: badge.bg, color: badge.fg, padding: '3px 9px', borderRadius: 8 }}>
                   {badge.label}
                 </span>

@@ -1,6 +1,25 @@
 import AnnouncementCard from '../components/AnnouncementCard';
 
-export default function Dashboard({ streak, doneM, totalM, overallLabel, ringGrad, goals, peers, announcements, onGoals, onIntake, onFeed, onToggleView, memberName, isAdmin }) {
+const heroPrimaryButtonStyle = {
+  background: 'var(--primary,#ffd84c)',
+  color: '#2b2440',
+  border: 'none',
+  fontFamily: 'inherit',
+  fontWeight: 700,
+  fontSize: 13,
+  padding: '10px 16px',
+  borderRadius: 12,
+  cursor: 'pointer',
+  boxShadow: '0 3px 0 rgba(200,166,40,.5)',
+};
+
+export default function Dashboard({ streak, doneM, totalM, overallLabel, ringGrad, goals, peers, announcements, onGoals, onIntake, onProfile, onViewProfile, onToggleView, memberName, isAdmin, profile }) {
+  const hasIntake = goals.length > 0;
+  const hasProfileInfo = Boolean(profile?.bio || profile?.focusTitle || profile?.tags?.length > 0);
+  const primaryGoal = goals[0];
+  const focusTitle = profile?.focusTitle || primaryGoal?.title || '';
+  const focusBody = profile?.focusBody || primaryGoal?.why || '';
+
   return (
     <div style={{ maxWidth: 1080, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
@@ -112,65 +131,85 @@ export default function Dashboard({ streak, doneM, totalM, overallLabel, ringGra
           </div>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--lilac,#6562ac)' }}>
-              Your focus
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted,#8a83a0)', background: 'rgba(101,98,172,.1)', padding: '3px 9px', borderRadius: 20 }}>
-              Week 3 of 8
-            </span>
-          </div>
-          <div style={{ fontFamily: 'var(--font-display,\'Fredoka\')', fontWeight: 700, fontSize: 26, letterSpacing: '-.01em', fontStyle: 'var(--head-style,normal)' }}>
-            Speaking up &amp; taking up space
-          </div>
-          <div style={{ fontSize: 14.5, color: '#5a5470', marginTop: 6, lineHeight: 1.5, maxWidth: 560 }}>
-            Practicing raising my hand, sharing my opinion first, and not shrinking just to stay comfortable.
-          </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-            <button
-              onClick={onGoals}
-              style={{
-                background: 'var(--primary,#ffd84c)',
-                color: '#2b2440',
-                border: 'none',
-                fontFamily: 'inherit',
-                fontWeight: 700,
-                fontSize: 13,
-                padding: '10px 16px',
-                borderRadius: 12,
-                cursor: 'pointer',
-                boxShadow: '0 3px 0 rgba(200,166,40,.5)',
-              }}
-              onMouseDown={(e) => {
-                e.currentTarget.style.transform = 'translateY(2px)';
-                e.currentTarget.style.boxShadow = '0 1px 0 rgba(200,166,40,.5)';
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.style.transform = '';
-                e.currentTarget.style.boxShadow = '0 3px 0 rgba(200,166,40,.5)';
-              }}
-            >
-              See my challenges →
-            </button>
-            <button
-              onClick={onIntake}
-              style={{
-                background: 'none',
-                color: '#5a5470',
-                border: '1px solid var(--line,rgba(43,36,64,.1))',
-                fontFamily: 'inherit',
-                fontWeight: 700,
-                fontSize: 13,
-                padding: '10px 16px',
-                borderRadius: 12,
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(43,36,64,.03)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
-            >
-              Revisit my intake
-            </button>
-          </div>
+          {!hasIntake ? (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--lilac,#6562ac)', marginBottom: 6 }}>
+                Let&rsquo;s get started
+              </div>
+              <div style={{ fontFamily: 'var(--font-display,\'Fredoka\')', fontWeight: 700, fontSize: 26, letterSpacing: '-.01em', fontStyle: 'var(--head-style,normal)' }}>
+                Set up your focus
+              </div>
+              <div style={{ fontSize: 14.5, color: '#5a5470', marginTop: 6, lineHeight: 1.5, maxWidth: 560 }}>
+                Take the intake survey so we can figure out what you want to work on this term.
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
+                <button onClick={onIntake} style={heroPrimaryButtonStyle}>
+                  Take the intake survey →
+                </button>
+              </div>
+            </>
+          ) : !hasProfileInfo ? (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--lilac,#6562ac)', marginBottom: 6 }}>
+                One more step
+              </div>
+              <div style={{ fontFamily: 'var(--font-display,\'Fredoka\')', fontWeight: 700, fontSize: 26, letterSpacing: '-.01em', fontStyle: 'var(--head-style,normal)' }}>
+                Tell your cohort about you
+              </div>
+              <div style={{ fontSize: 14.5, color: '#5a5470', marginTop: 6, lineHeight: 1.5, maxWidth: 560 }}>
+                Add a quick bio and focus so the rest of your cohort knows who you are.
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
+                <button onClick={onProfile} style={heroPrimaryButtonStyle}>
+                  Fill out your profile →
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--lilac,#6562ac)' }}>
+                  Your focus
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted,#8a83a0)', background: 'rgba(101,98,172,.1)', padding: '3px 9px', borderRadius: 20 }}>
+                  {goals.length} active goal{goals.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              {focusTitle && (
+                <div style={{ fontFamily: 'var(--font-display,\'Fredoka\')', fontWeight: 700, fontSize: 26, letterSpacing: '-.01em', fontStyle: 'var(--head-style,normal)' }}>
+                  {focusTitle}
+                </div>
+              )}
+              {focusBody && (
+                <div style={{ fontSize: 14.5, color: '#5a5470', marginTop: 6, lineHeight: 1.5, maxWidth: 560 }}>
+                  {focusBody}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
+                <button onClick={onGoals} style={heroPrimaryButtonStyle}>
+                  See my challenges →
+                </button>
+                <button
+                  onClick={onIntake}
+                  style={{
+                    background: 'none',
+                    color: '#5a5470',
+                    border: '1px solid var(--line,rgba(43,36,64,.1))',
+                    fontFamily: 'inherit',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    padding: '10px 16px',
+                    borderRadius: 12,
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(43,36,64,.03)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                >
+                  Revisit my intake
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -217,13 +256,20 @@ export default function Dashboard({ streak, doneM, totalM, overallLabel, ringGra
             <div style={{ fontFamily: 'var(--font-display,\'Fredoka\')', fontWeight: 700, fontSize: 18, fontStyle: 'var(--head-style,normal)' }}>
               Your cohort
             </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted,#8a83a0)' }}>7 doers</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted,#8a83a0)' }}>
+              {peers.length} {peers.length === 1 ? 'doer' : 'doers'}
+            </span>
           </div>
           <div style={{ background: 'var(--surface,#fff)', border: '1px solid var(--line,rgba(43,36,64,.1))', borderRadius: 18, padding: 8, display: 'flex', flexDirection: 'column' }}>
+            {peers.length === 0 && (
+              <div style={{ padding: '14px 10px', fontSize: 13, color: 'var(--muted,#8a83a0)', fontWeight: 600 }}>
+                No other active members yet.
+              </div>
+            )}
             {peers.map((p) => (
               <button
-                key={p.name}
-                onClick={onFeed}
+                key={p.id}
+                onClick={() => onViewProfile(p.id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, border: 'none', background: 'none', borderRadius: 13, cursor: 'pointer', textAlign: 'left', width: '100%' }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(43,36,64,.04)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}

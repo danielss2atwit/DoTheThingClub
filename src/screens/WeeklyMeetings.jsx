@@ -21,6 +21,7 @@ export default function WeeklyMeetings({
   onToggleSubmitted,
   onArchiveWeek,
   onOpenNewWeek,
+  onViewProfile,
 }) {
   const { currentWeek, archive } = weeklyCycle;
   const activeMembers = members.filter((m) => m.memberStatus === 'active');
@@ -110,10 +111,13 @@ export default function WeeklyMeetings({
                   padding: '10px 14px',
                 }}
               >
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: m.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flex: 'none' }}>
+                <div
+                  onClick={() => onViewProfile(m.id)}
+                  style={{ width: 32, height: 32, borderRadius: 10, background: m.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flex: 'none', cursor: 'pointer' }}
+                >
                   {m.initials}
                 </div>
-                <div style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: '#2b2440' }}>{m.name}</div>
+                <div onClick={() => onViewProfile(m.id)} style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: '#2b2440', cursor: 'pointer' }}>{m.name}</div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: '#5a5470', cursor: 'pointer' }}>
                   <input type="checkbox" checked={!!m.submittedThisWeek} onChange={() => onToggleSubmitted(m.id)} />
                   Submitted

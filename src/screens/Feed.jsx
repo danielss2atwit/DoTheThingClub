@@ -19,6 +19,7 @@ export default function Feed({
   onToggleComments,
   onSetCommentDraft,
   onAddComment,
+  onViewProfile,
   memberInitials,
   memberColor,
 }) {
@@ -144,6 +145,7 @@ export default function Feed({
           <div key={p.id} style={{ background: 'var(--surface,#fff)', border: '1px solid var(--line,rgba(43,36,64,.1))', borderRadius: 20, padding: 20, animation: 'floatin .3s ease' }}>
             <div style={{ display: 'flex', gap: 13, alignItems: 'center' }}>
               <div
+                onClick={() => onViewProfile(p.authorId)}
                 style={{
                   width: 44,
                   height: 44,
@@ -156,13 +158,19 @@ export default function Feed({
                   fontSize: 15,
                   color: '#fff',
                   background: p.color,
+                  cursor: 'pointer',
                 }}
               >
                 {p.initials}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: 700, fontSize: 15, color: '#2b2440' }}>{p.author}</span>
+                  <span
+                    onClick={() => onViewProfile(p.authorId)}
+                    style={{ fontWeight: 700, fontSize: 15, color: '#2b2440', cursor: 'pointer' }}
+                  >
+                    {p.author}
+                  </span>
                   <span style={{ fontSize: 11.5, fontWeight: 800, padding: '3px 10px', borderRadius: 20, background: km.bg, color: km.fg }}>
                     {km.label}
                   </span>
@@ -243,6 +251,7 @@ export default function Feed({
                 {p.comments.map((c, i) => (
                   <div key={i} style={{ display: 'flex', gap: 10 }}>
                     <div
+                      onClick={() => onViewProfile(c.memberId)}
                       style={{
                         width: 30,
                         height: 30,
@@ -255,12 +264,18 @@ export default function Feed({
                         fontSize: 11,
                         color: '#fff',
                         background: c.color,
+                        cursor: 'pointer',
                       }}
                     >
                       {c.initials}
                     </div>
                     <div style={{ background: 'rgba(43,36,64,.04)', borderRadius: 13, padding: '9px 13px' }}>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: '#2b2440' }}>{c.author}</span>
+                      <span
+                        onClick={() => onViewProfile(c.memberId)}
+                        style={{ fontWeight: 700, fontSize: 13, color: '#2b2440', cursor: 'pointer' }}
+                      >
+                        {c.author}
+                      </span>
                       <div style={{ fontSize: 13.5, color: '#43405a', lineHeight: 1.45, marginTop: 2 }}>{c.text}</div>
                     </div>
                   </div>

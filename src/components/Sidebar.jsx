@@ -25,7 +25,7 @@ const activeBounceStyle = {
   boxShadow: '0 3px 0 rgba(200,166,40,.4)',
 };
 
-export default function Sidebar({ screen, view, onNav, onPost, onProfile }) {
+export default function Sidebar({ screen, view, onNav, onPost, onProfile, profile }) {
   return (
     <aside
       style={{
@@ -198,7 +198,7 @@ export default function Sidebar({ screen, view, onNav, onPost, onProfile }) {
               width: 36,
               height: 36,
               borderRadius: 11,
-              background: 'var(--lilac,#6562ac)',
+              background: profile?.color || 'var(--lilac,#6562ac)',
               color: '#fff',
               display: 'flex',
               alignItems: 'center',
@@ -208,12 +208,12 @@ export default function Sidebar({ screen, view, onNav, onPost, onProfile }) {
               flex: 'none',
             }}
           >
-            MC
+            {profile?.initials}
           </div>
           <div style={{ lineHeight: 1.2, overflow: 'hidden' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#2b2440' }}>Maya Chen</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#2b2440' }}>{profile?.name}</div>
             <div style={{ fontSize: 11, color: 'var(--muted,#8a83a0)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Speaking up · Cohort 4
+              {profile?.bio || profile?.project || 'Add a bio on your profile'}
             </div>
           </div>
         </button>
