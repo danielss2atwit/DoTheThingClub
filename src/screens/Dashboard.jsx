@@ -1,4 +1,5 @@
 import AnnouncementCard from '../components/AnnouncementCard';
+import WeeklyGoalBanner from '../components/WeeklyGoalBanner';
 
 const heroPrimaryButtonStyle = {
   background: 'var(--primary,#ffd84c)',
@@ -13,12 +14,13 @@ const heroPrimaryButtonStyle = {
   boxShadow: '0 3px 0 rgba(200,166,40,.5)',
 };
 
-export default function Dashboard({ streak, doneM, totalM, overallLabel, ringGrad, goals, peers, announcements, onGoals, onIntake, onProfile, onViewProfile, onToggleView, memberName, isAdmin, profile }) {
+export default function Dashboard({ doneM, totalM, overallLabel, ringGrad, goals, peers, announcements, onGoals, onIntake, onProfile, onViewProfile, onToggleView, memberName, isAdmin, profile, weeklyGoals, onAddWeeklyGoal, onReflectWeeklyGoal, weekEndDay }) {
   const hasIntake = goals.length > 0;
   const hasProfileInfo = Boolean(profile?.bio || profile?.focusTitle || profile?.tags?.length > 0);
   const primaryGoal = goals[0];
   const focusTitle = profile?.focusTitle || primaryGoal?.title || '';
   const focusBody = profile?.focusBody || primaryGoal?.why || '';
+  const activeWeeklyGoal = weeklyGoals.find((wg) => !wg.reflected) || null;
 
   return (
     <div style={{ maxWidth: 1080, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -58,12 +60,6 @@ export default function Dashboard({ streak, doneM, totalM, overallLabel, ringGra
               Switch to Admin View →
             </button>
           )}
-          <div style={{ background: 'var(--surface,#fff)', border: '1px solid var(--line,rgba(43,36,64,.1))', borderRadius: 14, padding: '11px 16px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-display,\'Fredoka\')', fontWeight: 700, fontSize: 22, color: 'var(--coral,#f26f63)', fontStyle: 'var(--head-style,normal)' }}>
-              {streak}🔥
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--muted,#8a83a0)', fontWeight: 700 }}>week streak</div>
-          </div>
           <div style={{ background: 'var(--surface,#fff)', border: '1px solid var(--line,rgba(43,36,64,.1))', borderRadius: 14, padding: '11px 16px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-display,\'Fredoka\')', fontWeight: 700, fontSize: 22, color: 'var(--lilac,#6562ac)', fontStyle: 'var(--head-style,normal)' }}>
               {doneM}/{totalM}
@@ -212,6 +208,14 @@ export default function Dashboard({ streak, doneM, totalM, overallLabel, ringGra
           )}
         </div>
       </div>
+
+      <WeeklyGoalBanner
+        goals={goals}
+        activeGoal={activeWeeklyGoal}
+        weekEndDay={weekEndDay}
+        onAddWeeklyGoal={onAddWeeklyGoal}
+        onReflectWeeklyGoal={onReflectWeeklyGoal}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.3fr .9fr', gap: 22, alignItems: 'start' }}>
         {/* goals mini */}

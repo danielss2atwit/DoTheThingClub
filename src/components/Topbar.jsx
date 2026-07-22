@@ -110,15 +110,16 @@ export default function Topbar({ screenTitle, screenSub, hasUnread, unreadCount,
 
         <button
           onClick={onSignOut}
-          title="Sign out"
           style={{
-            width: 44,
             height: 44,
             borderRadius: 13,
             background: 'var(--surface,#fff)',
             border: '1px solid var(--line,rgba(43,36,64,.1))',
             cursor: 'pointer',
-            fontSize: 16,
+            fontFamily: 'inherit',
+            fontWeight: 700,
+            fontSize: 13,
+            padding: '0 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -126,7 +127,7 @@ export default function Topbar({ screenTitle, screenSub, hasUnread, unreadCount,
           onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(43,36,64,.03)')}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface,#fff)')}
         >
-          ⏻
+          Sign out
         </button>
       </div>
     </header>

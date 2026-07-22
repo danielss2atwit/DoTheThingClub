@@ -214,7 +214,6 @@ export default function App() {
   const [composeKind, setComposeKind] = useState('try');
   const [commentDrafts, setCommentDrafts] = useState({});
   const [openComments, setOpenComments] = useState({});
-  const [streak] = useState(3);
 
   const [goals, setGoals] = useState([]);
   const [weeklyGoals, setWeeklyGoals] = useState([]);
@@ -505,6 +504,24 @@ export default function App() {
         .eq('member_id', profile.id)
         .then(({ error }) => error && console.error(error));
     }
+  };
+  const updatePost = (id, text) => {
+    setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, text } : p)));
+    supabase
+      .from('posts')
+      .update({ text })
+      .eq('id', id)
+      .eq('member_id', profile.id)
+      .then(({ error }) => error && console.error(error));
+  };
+  const deletePost = (id) => {
+    setPosts((ps) => ps.filter((p) => p.id !== id));
+    supabase
+      .from('posts')
+      .delete()
+      .eq('id', id)
+      .eq('member_id', profile.id)
+      .then(({ error }) => error && console.error(error));
   };
   const toggleComments = (id) => setOpenComments((oc) => ({ ...oc, [id]: !oc[id] }));
   const setCommentDraft = (id, val) => setCommentDrafts((cd) => ({ ...cd, [id]: val }));
@@ -934,7 +951,6 @@ export default function App() {
         <main style={{ flex: 1, overflow: 'auto', padding: '30px 34px 60px' }}>
           {screen === 'dashboard' && (
             <Dashboard
-              streak={streak}
               doneM={doneM}
               totalM={totalM}
               overallLabel={`${overallPct}%`}
@@ -950,6 +966,10 @@ export default function App() {
               memberName={profile.name?.split(' ')[0] || profile.name}
               isAdmin={isAdmin}
               profile={profile}
+              weeklyGoals={weeklyGoals}
+              onAddWeeklyGoal={addWeeklyGoal}
+              onReflectWeeklyGoal={reflectWeeklyGoal}
+              weekEndDay={weekEndDay}
             />
           )}
 
@@ -961,6 +981,9 @@ export default function App() {
               onSetComposeKind={setComposeKind}
               onPostUpdate={postUpdate}
               posts={posts}
+              currentMemberId={profile.id}
+              onUpdatePost={updatePost}
+              onDeletePost={deletePost}
               openComments={openComments}
               commentDrafts={commentDrafts}
               onToggleHighFive={toggleHighFive}
